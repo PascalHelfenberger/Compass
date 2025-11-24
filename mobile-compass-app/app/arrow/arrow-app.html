@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arrow Direction App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .info {
+            font-size: 14px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .arrow-container {
+            width: 300px;
+            height: 300px;
+            position: relative;
+            margin: 0 auto;
+        }
+
+        .arrow {
+            width: 80px;
+            height: 80px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out;
+        }
+
+        .arrow svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+        }
+
+        .debug-info {
+            margin-top: 30px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+        }
+
+        .debug-info p {
+            margin: 5px 0;
+        }
+
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+        }
+
+        .error {
+            background: rgba(255, 0, 0, 0.3);
+        }
+
+        .success {
+            background: rgba(0, 255, 0, 0.3);
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 12px 24px;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Arrow Direction Tracker</h1>
+        <p class="info">The arrow points to the initial top of the viewport</p>
+
+        <div class="arrow-container">
+            <div class="arrow" id="arrow">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M 50 10 L 80 60 L 65 60 L 65 90 L 35 90 L 35 60 L 20 60 Z"
+                          fill="url(#arrowGradient)"
+                          stroke="#333"
+                          stroke-width="2"/>
+                </svg>
+            </div>
+        </div>
+
+        <button id="requestPermission" style="display: none;">Enable Orientation</button>
+
+        <div class="debug-info">
+            <p><strong>Alpha (Z-axis):</strong> <span id="alpha">--</span>°</p>
+            <p><strong>Beta (X-axis):</strong> <span id="beta">--</span>°</p>
+            <p><strong>Gamma (Y-axis):</strong> <span id="gamma">--</span>°</p>
+            <p><strong>Arrow Rotation:</strong> <span id="rotation">0</span>°</p>
+            <div class="status" id="status">Initializing...</div>
+        </div>
+    </div>
+
+    <script>
+        const arrow = document.getElementById('arrow');
+        const alphaDisplay = document.getElementById('alpha');
+        const betaDisplay = document.getElementById('beta');
+        const gammaDisplay = document.getElementById('gamma');
+        const rotationDisplay = document.getElementById('rotation');
+        const statusDisplay = document.getElementById('status');
+        const requestButton = document.getElementById('requestPermission');
+
+        let initialAlpha = null;
+        let currentRotation = 0;
+
+        function updateArrow(event) {
+            // alpha: rotation around z-axis (0-360)
+            // beta: rotation around x-axis (-180 to 180)
+            // gamma: rotation around y-axis (-90 to 90)
+
+            const alpha = event.alpha;
+            const beta = event.beta;
+            const gamma = event.gamma;
+
+            // Update debug display
+            alphaDisplay.textContent = alpha ? alpha.toFixed(1) : 'null';
+            betaDisplay.textContent = beta ? beta.toFixed(1) : 'null';
+            gammaDisplay.textContent = gamma ? gamma.toFixed(1) : 'null';
+
+            if (alpha !== null) {
+                // Set initial direction on first reading
+                if (initialAlpha === null) {
+                    initialAlpha = alpha;
+                    statusDisplay.textContent = 'Tracking active!';
+                    statusDisplay.className = 'status success';
+                }
+
+                // Calculate rotation relative to initial position
+                // We want the arrow to maintain its original direction,
+                // so we rotate it opposite to the device rotation
+                currentRotation = -(alpha - initialAlpha);
+
+                // Apply rotation
+                arrow.style.transform = `translate(-50%, -50%) rotate(${currentRotation}deg)`;
+                rotationDisplay.textContent = currentRotation.toFixed(1);
+            }
+        }
+
+        function requestPermissionIOS() {
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', updateArrow);
+                            requestButton.style.display = 'none';
+                            statusDisplay.textContent = 'Permission granted. Waiting for data...';
+                            statusDisplay.className = 'status success';
+                        } else {
+                            statusDisplay.textContent = 'Permission denied';
+                            statusDisplay.className = 'status error';
+                        }
+                    })
+                    .catch(error => {
+                        statusDisplay.textContent = `Error: ${error.message}`;
+                        statusDisplay.className = 'status error';
+                    });
+            } else {
+                // Not iOS 13+, proceed normally
+                window.addEventListener('deviceorientation', updateArrow);
+                statusDisplay.textContent = 'Waiting for orientation data...';
+            }
+        }
+
+        // Check if permission is needed (iOS 13+)
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            requestButton.style.display = 'block';
+            requestButton.addEventListener('click', requestPermissionIOS);
+            statusDisplay.textContent = 'Click button to enable orientation tracking';
+        } else {
+            // Android and other platforms
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', updateArrow);
+                statusDisplay.textContent = 'Waiting for orientation data...';
+            } else {
+                statusDisplay.textContent = 'DeviceOrientation not supported';
+                statusDisplay.className = 'status error';
+            }
+        }
+
+        // Test if we're getting data after 3 seconds
+        setTimeout(() => {
+            if (initialAlpha === null && statusDisplay.textContent === 'Waiting for orientation data...') {
+                statusDisplay.textContent = 'No orientation data received. Make sure sensors are enabled.';
+                statusDisplay.className = 'status error';
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

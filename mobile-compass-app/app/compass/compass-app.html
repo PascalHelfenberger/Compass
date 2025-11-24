@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compass App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .info {
+            font-size: 14px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .compass-container {
+            width: 300px;
+            height: 300px;
+            position: relative;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .compass-circle {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .direction-marker {
+            position: absolute;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .north { top: 10px; left: 50%; transform: translateX(-50%); color: #ff4444; }
+        .east { right: 10px; top: 50%; transform: translateY(-50%); }
+        .south { bottom: 10px; left: 50%; transform: translateX(-50%); }
+        .west { left: 10px; top: 50%; transform: translateY(-50%); }
+
+        .arrow {
+            width: 80px;
+            height: 80px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.2s ease-out;
+        }
+
+        .arrow svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+        }
+
+        .degree-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            margin-top: 50px;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .debug-info {
+            margin-top: 30px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 350px;
+        }
+
+        .debug-info p {
+            margin: 5px 0;
+        }
+
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+        }
+
+        .error {
+            background: rgba(255, 0, 0, 0.3);
+        }
+
+        .success {
+            background: rgba(0, 255, 0, 0.3);
+        }
+
+        .warning {
+            background: rgba(255, 165, 0, 0.3);
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 12px 24px;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .method-selector {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .method-selector button {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .method-selector button.active {
+            background: rgba(255, 255, 255, 0.4);
+            border-color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Compass App</h1>
+        <p class="info">Arrow points North</p>
+
+        <div class="compass-container">
+            <div class="compass-circle">
+                <div class="direction-marker north">N</div>
+                <div class="direction-marker east">E</div>
+                <div class="direction-marker south">S</div>
+                <div class="direction-marker west">W</div>
+
+                <div class="arrow" id="arrow">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="northGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ff4444;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#cc0000;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="southGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="50%" style="stop-color:#cccccc;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#888888;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <!-- North pointer (red) -->
+                        <path d="M 50 10 L 65 50 L 50 45 L 35 50 Z"
+                              fill="url(#northGradient)"
+                              stroke="#660000"
+                              stroke-width="1"/>
+                        <!-- South pointer (gray) -->
+                        <path d="M 50 90 L 65 50 L 50 55 L 35 50 Z"
+                              fill="url(#southGradient)"
+                              stroke="#333333"
+                              stroke-width="1"/>
+                        <!-- Center circle -->
+                        <circle cx="50" cy="50" r="8" fill="white" stroke="#333" stroke-width="2"/>
+                    </svg>
+                </div>
+
+                <div class="degree-display" id="degreeDisplay">--°</div>
+            </div>
+        </div>
+
+        <div class="method-selector">
+            <button id="methodWebkitCompass" class="method-btn">webkitCompassHeading</button>
+            <button id="methodAbsoluteAlpha" class="method-btn">Absolute Alpha</button>
+            <button id="methodMagnetometer" class="method-btn">Magnetometer API</button>
+        </div>
+
+        <button id="requestPermission" style="display: none;">Enable Sensors</button>
+
+        <div class="debug-info">
+            <p><strong>Method:</strong> <span id="method">Not started</span></p>
+            <p><strong>Heading:</strong> <span id="heading">--</span>°</p>
+            <p><strong>Alpha:</strong> <span id="alpha">--</span>°</p>
+            <p><strong>Absolute:</strong> <span id="absolute">--</span></p>
+            <p><strong>Browser:</strong> <span id="browser">--</span></p>
+            <div class="status" id="status">Initializing...</div>
+        </div>
+    </div>
+
+    <script>
+        const arrow = document.getElementById('arrow');
+        const degreeDisplay = document.getElementById('degreeDisplay');
+        const headingDisplay = document.getElementById('heading');
+        const alphaDisplay = document.getElementById('alpha');
+        const absoluteDisplay = document.getElementById('absolute');
+        const methodDisplay = document.getElementById('method');
+        const statusDisplay = document.getElementById('status');
+        const browserDisplay = document.getElementById('browser');
+        const requestButton = document.getElementById('requestPermission');
+
+        let currentHeading = 0;
+        let activeMethod = null;
+        let magnetometer = null;
+        let accelerometer = null;
+
+        // Detect browser
+        function detectBrowser() {
+            const ua = navigator.userAgent;
+            if (ua.includes('Chrome') && !ua.includes('Edge')) return 'Chrome/Android';
+            if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari/iOS';
+            if (ua.includes('Firefox')) return 'Firefox';
+            return 'Unknown';
+        }
+        browserDisplay.textContent = detectBrowser();
+
+        function updateCompass(heading) {
+            currentHeading = heading;
+            arrow.style.transform = `translate(-50%, -50%) rotate(${heading}deg)`;
+            degreeDisplay.textContent = Math.round(heading) + '°';
+            headingDisplay.textContent = heading.toFixed(1);
+        }
+
+        // Method 1: webkitCompassHeading (iOS Safari)
+        function startWebkitCompass() {
+            function handleOrientation(event) {
+                if (event.webkitCompassHeading !== undefined) {
+                    // webkitCompassHeading gives degrees from North (0-360)
+                    // We need to rotate arrow to point north
+                    const heading = 360 - event.webkitCompassHeading;
+                    updateCompass(heading);
+
+                    if (statusDisplay.classList.contains('error') || statusDisplay.classList.contains('warning')) {
+                        statusDisplay.textContent = 'Tracking with webkitCompassHeading';
+                        statusDisplay.className = 'status success';
+                    }
+                } else {
+                    statusDisplay.textContent = 'webkitCompassHeading not available';
+                    statusDisplay.className = 'status error';
+                }
+            }
+
+            window.addEventListener('deviceorientation', handleOrientation);
+            methodDisplay.textContent = 'webkitCompassHeading';
+            activeMethod = 'webkit';
+        }
+
+        // Method 2: Absolute orientation (Android Chrome)
+        function startAbsoluteOrientation() {
+            function handleOrientation(event) {
+                alphaDisplay.textContent = event.alpha ? event.alpha.toFixed(1) : 'null';
+                absoluteDisplay.textContent = event.absolute ? 'true' : 'false';
+
+                if (event.absolute && event.alpha !== null) {
+                    // On Android with absolute orientation, alpha represents compass heading
+                    // 0 = North, 90 = East, 180 = South, 270 = West
+                    // We need to rotate arrow opposite to device heading to point north
+                    const heading = 360 - event.alpha;
+                    updateCompass(heading);
+
+                    if (statusDisplay.classList.contains('error') || statusDisplay.classList.contains('warning')) {
+                        statusDisplay.textContent = 'Tracking with absolute orientation';
+                        statusDisplay.className = 'status success';
+                    }
+                } else {
+                    statusDisplay.textContent = 'Absolute orientation not available';
+                    statusDisplay.className = 'status warning';
+                }
+            }
+
+            window.addEventListener('deviceorientationabsolute', handleOrientation);
+            window.addEventListener('deviceorientation', handleOrientation);
+            methodDisplay.textContent = 'Absolute Alpha';
+            activeMethod = 'absolute';
+        }
+
+        // Method 3: Magnetometer API (experimental)
+        async function startMagnetometer() {
+            if ('Magnetometer' in window) {
+                try {
+                    magnetometer = new Magnetometer({ frequency: 60 });
+                    accelerometer = new Accelerometer({ frequency: 60 });
+
+                    let magX, magY, magZ;
+                    let accelX, accelY, accelZ;
+
+                    magnetometer.addEventListener('reading', () => {
+                        magX = magnetometer.x;
+                        magY = magnetometer.y;
+                        magZ = magnetometer.z;
+                        calculateHeading();
+                    });
+
+                    accelerometer.addEventListener('reading', () => {
+                        accelX = accelerometer.x;
+                        accelY = accelerometer.y;
+                        accelZ = accelerometer.z;
+                    });
+
+                    function calculateHeading() {
+                        if (magX !== undefined && magY !== undefined) {
+                            // Simple 2D compass calculation
+                            let heading = Math.atan2(magY, magX) * (180 / Math.PI);
+                            heading = (heading + 360) % 360;
+                            updateCompass(360 - heading);
+
+                            if (statusDisplay.classList.contains('error') || statusDisplay.classList.contains('warning')) {
+                                statusDisplay.textContent = 'Tracking with Magnetometer API';
+                                statusDisplay.className = 'status success';
+                            }
+                        }
+                    }
+
+                    await magnetometer.start();
+                    await accelerometer.start();
+                    methodDisplay.textContent = 'Magnetometer API';
+                    activeMethod = 'magnetometer';
+                    statusDisplay.textContent = 'Magnetometer started';
+                    statusDisplay.className = 'status success';
+                } catch (error) {
+                    statusDisplay.textContent = `Magnetometer error: ${error.message}`;
+                    statusDisplay.className = 'status error';
+                }
+            } else {
+                statusDisplay.textContent = 'Magnetometer API not supported';
+                statusDisplay.className = 'status error';
+            }
+        }
+
+        function stopAllMethods() {
+            window.removeEventListener('deviceorientation', () => {});
+            window.removeEventListener('deviceorientationabsolute', () => {});
+            if (magnetometer) magnetometer.stop();
+            if (accelerometer) accelerometer.stop();
+        }
+
+        // Method selection
+        document.getElementById('methodWebkitCompass').addEventListener('click', function() {
+            stopAllMethods();
+            startWebkitCompass();
+            document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        document.getElementById('methodAbsoluteAlpha').addEventListener('click', function() {
+            stopAllMethods();
+            startAbsoluteOrientation();
+            document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        document.getElementById('methodMagnetometer').addEventListener('click', async function() {
+            stopAllMethods();
+            await startMagnetometer();
+            document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        // Auto-detect best method
+        async function autoStart() {
+            const browser = detectBrowser();
+
+            if (browser.includes('Safari')) {
+                document.getElementById('methodWebkitCompass').click();
+            } else if (browser.includes('Chrome')) {
+                document.getElementById('methodAbsoluteAlpha').click();
+            } else {
+                statusDisplay.textContent = 'Please select a method above';
+                statusDisplay.className = 'status warning';
+            }
+        }
+
+        // Permission handling
+        async function requestPermissionIOS() {
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === 'granted') {
+                        requestButton.style.display = 'none';
+                        await autoStart();
+                    } else {
+                        statusDisplay.textContent = 'Permission denied';
+                        statusDisplay.className = 'status error';
+                    }
+                } catch (error) {
+                    statusDisplay.textContent = `Error: ${error.message}`;
+                    statusDisplay.className = 'status error';
+                }
+            } else {
+                await autoStart();
+            }
+        }
+
+        // Initialize
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            requestButton.style.display = 'block';
+            requestButton.addEventListener('click', requestPermissionIOS);
+            statusDisplay.textContent = 'Click button to enable sensors';
+        } else {
+            autoStart();
+        }
+    </script>
+</body>
+</html>
