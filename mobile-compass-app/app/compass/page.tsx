@@ -18,7 +18,7 @@ export default function CompassApp() {
   const [showButton, setShowButton] = useState(false)
   const [browser, setBrowser] = useState('Unknown')
   const [activeMethod, setActiveMethod] = useState<CompassMethod>(null)
-  const headingHistory = useState<number[]>([]).at(0)!
+  const [headingHistory, setHeadingHistory] = useState<number[]>([])
 
   useEffect(() => {
     // Only run on client side
@@ -36,31 +36,35 @@ export default function CompassApp() {
     // Normalize heading to 0-360
     newHeading = ((newHeading % 360) + 360) % 360
 
-    // Add to history
-    headingHistory.push(newHeading)
+    // Update history with new heading
+    setHeadingHistory(prevHistory => {
+      const newHistory = [...prevHistory, newHeading]
 
-    // Keep only last 5 readings for smoothing
-    if (headingHistory.length > 5) {
-      headingHistory.shift()
-    }
+      // Keep only last 5 readings for smoothing
+      if (newHistory.length > 5) {
+        newHistory.shift()
+      }
 
-    // Calculate average, handling circular nature of angles
-    if (headingHistory.length > 0) {
-      let sumSin = 0
-      let sumCos = 0
+      // Calculate average, handling circular nature of angles
+      if (newHistory.length > 0) {
+        let sumSin = 0
+        let sumCos = 0
 
-      headingHistory.forEach(h => {
-        sumSin += Math.sin(h * Math.PI / 180)
-        sumCos += Math.cos(h * Math.PI / 180)
-      })
+        newHistory.forEach(h => {
+          sumSin += Math.sin(h * Math.PI / 180)
+          sumCos += Math.cos(h * Math.PI / 180)
+        })
 
-      const avgSin = sumSin / headingHistory.length
-      const avgCos = sumCos / headingHistory.length
-      let avgHeading = Math.atan2(avgSin, avgCos) * 180 / Math.PI
-      avgHeading = ((avgHeading % 360) + 360) % 360
+        const avgSin = sumSin / newHistory.length
+        const avgCos = sumCos / newHistory.length
+        let avgHeading = Math.atan2(avgSin, avgCos) * 180 / Math.PI
+        avgHeading = ((avgHeading % 360) + 360) % 360
 
-      setSmoothedHeading(avgHeading)
-    }
+        setSmoothedHeading(avgHeading)
+      }
+
+      return newHistory
+    })
 
     setHeading(newHeading)
   }
