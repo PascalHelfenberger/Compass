@@ -1,10 +1,11 @@
 import Link from 'next/link'
+import { styleText } from 'util'
 
 export default function Home() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: 'linear-gradient(135deg, #2c8adcff 0%, #06cdc6ff 100%)',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -14,7 +15,7 @@ export default function Home() {
       fontFamily: 'Arial, sans-serif'
     }}>
       <h1 style={{ fontSize: '32px', marginBottom: '20px', textAlign: 'center' }}>
-        Mobile Web APIs
+        P12 Mobile Web APIs
       </h1>
       <p style={{ fontSize: '16px', marginBottom: '40px', textAlign: 'center', opacity: 0.9 }}>
         Choose an application
@@ -76,13 +77,11 @@ export default function Home() {
         maxWidth: '400px',
         fontSize: '14px'
       }}>
-        <p style={{ marginBottom: '10px' }}>
-          <strong>Note:</strong> These apps require device sensors.
-        </p>
-        <ul style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
-          <li>iOS: Grant permission when prompted</li>
-          <li>Android: Should work automatically</li>
-          <li>Works best on actual devices (not desktop)</li>
+        <ul style={{ paddingLeft: '20px', justifyContent: 'center', lineHeight: '1.6' }}>
+          <h4>MOBA1 - ZHAW School of Applied Sciences</h4>
+          <a>Developed by helfepa1, ismhaj01, sivaksiv</a>
+          <br />
+          <a style={{ fontStyle: 'italic' }}>©️2025 - all rights reserved</a>
         </ul>
       </div>
     </div>

@@ -7,7 +7,10 @@ type CompassMethod = 'webkit' | 'absolute' | 'magnetometer' | null
 
 export default function CompassApp() {
   const [heading, setHeading] = useState(0)
+  const [smoothedHeading, setSmoothedHeading] = useState(0)
   const [alpha, setAlpha] = useState<number | null>(null)
+  const [beta, setBeta] = useState<number | null>(null)
+  const [gamma, setGamma] = useState<number | null>(null)
   const [absolute, setAbsolute] = useState(false)
   const [method, setMethod] = useState<string>('Not started')
   const [status, setStatus] = useState('Initializing...')
@@ -15,6 +18,7 @@ export default function CompassApp() {
   const [showButton, setShowButton] = useState(false)
   const [browser, setBrowser] = useState('Unknown')
   const [activeMethod, setActiveMethod] = useState<CompassMethod>(null)
+  const headingHistory = useState<number[]>([]).at(0)!
 
   useEffect(() => {
     // Only run on client side
@@ -28,8 +32,41 @@ export default function CompassApp() {
     setBrowser(detectedBrowser)
   }, [])
 
-  const updateCompass = (newHeading: number) => {
+  const smoothHeading = (newHeading: number) => {
+    // Normalize heading to 0-360
+    newHeading = ((newHeading % 360) + 360) % 360
+
+    // Add to history
+    headingHistory.push(newHeading)
+
+    // Keep only last 5 readings for smoothing
+    if (headingHistory.length > 5) {
+      headingHistory.shift()
+    }
+
+    // Calculate average, handling circular nature of angles
+    if (headingHistory.length > 0) {
+      let sumSin = 0
+      let sumCos = 0
+
+      headingHistory.forEach(h => {
+        sumSin += Math.sin(h * Math.PI / 180)
+        sumCos += Math.cos(h * Math.PI / 180)
+      })
+
+      const avgSin = sumSin / headingHistory.length
+      const avgCos = sumCos / headingHistory.length
+      let avgHeading = Math.atan2(avgSin, avgCos) * 180 / Math.PI
+      avgHeading = ((avgHeading % 360) + 360) % 360
+
+      setSmoothedHeading(avgHeading)
+    }
+
     setHeading(newHeading)
+  }
+
+  const updateCompass = (newHeading: number) => {
+    smoothHeading(newHeading)
   }
 
   const startWebkitCompass = () => {
@@ -38,8 +75,9 @@ export default function CompassApp() {
     const handleOrientation = (event: DeviceOrientationEvent) => {
       const webkitHeading = (event as any).webkitCompassHeading
       if (webkitHeading !== undefined) {
-        const newHeading = 360 - webkitHeading
-        updateCompass(newHeading)
+        // webkitCompassHeading gives true north heading (0-360)
+        // No need to invert, use directly
+        updateCompass(webkitHeading)
 
         if (statusType !== 'success') {
           setStatus('Tracking with webkitCompassHeading')
@@ -61,11 +99,36 @@ export default function CompassApp() {
 
     const handleOrientation = (event: DeviceOrientationEvent) => {
       setAlpha(event.alpha)
+      setBeta(event.beta)
+      setGamma(event.gamma)
       setAbsolute(event.absolute || false)
 
       if (event.absolute && event.alpha !== null) {
-        const newHeading = 360 - event.alpha
-        updateCompass(newHeading)
+        // For absolute orientation on Android:
+        // Alpha is 0-360 where 0 is north
+        // The device must be held flat (parallel to ground) for accurate readings
+        // When held upright, we need to compensate with beta/gamma
+
+        let compassHeading = event.alpha
+
+        // If device is significantly tilted (not flat), adjust using beta and gamma
+        if (event.beta !== null && event.gamma !== null) {
+          const betaRad = event.beta * Math.PI / 180
+          const gammaRad = event.gamma * Math.PI / 180
+
+          // Tilt compensation formula
+          const tiltAngle = Math.atan2(
+            Math.sin(gammaRad),
+            Math.sin(betaRad) * Math.cos(gammaRad)
+          ) * 180 / Math.PI
+
+          // Apply compensation when device is upright
+          if (Math.abs(event.beta) > 45) {
+            compassHeading = (compassHeading + tiltAngle) % 360
+          }
+        }
+
+        updateCompass(compassHeading)
 
         if (statusType !== 'success') {
           setStatus('Tracking with absolute orientation')
@@ -96,9 +159,15 @@ export default function CompassApp() {
           const magY = magnetometer.y
 
           if (magX !== undefined && magY !== undefined) {
+            // Calculate heading from magnetometer values
+            // atan2(y, x) gives angle from east, convert to north
             let newHeading = Math.atan2(magY, magX) * (180 / Math.PI)
+
+            // Convert from math angle (0=east, counter-clockwise) to compass (0=north, clockwise)
+            newHeading = 90 - newHeading
             newHeading = (newHeading + 360) % 360
-            updateCompass(360 - newHeading)
+
+            updateCompass(newHeading)
 
             if (statusType !== 'success') {
               setStatus('Tracking with Magnetometer API')
@@ -197,63 +266,179 @@ export default function CompassApp() {
         </p>
 
         <div style={{
-          width: '300px',
-          height: '300px',
+          width: '340px',
+          height: '340px',
           position: 'relative',
-          margin: '0 auto',
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '50%',
-          border: '3px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: '0 0 30px rgba(0, 0, 0, 0.3)'
+          margin: '0 auto'
         }}>
-          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', fontSize: '20px', fontWeight: 'bold', color: '#ff4444' }}>N</div>
-            <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', fontWeight: 'bold' }}>E</div>
-            <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', fontSize: '20px', fontWeight: 'bold' }}>S</div>
-            <div style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', fontWeight: 'bold' }}>W</div>
+          <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" style={{
+            width: '100%',
+            height: '100%',
+            filter: 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.4))'
+          }}>
+            <defs>
+              <radialGradient id="compassBg" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" style={{ stopColor: '#ffffff', stopOpacity: 1 }} />
+                <stop offset="70%" style={{ stopColor: '#f5f5f5', stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: '#e0e0e0', stopOpacity: 1 }} />
+              </radialGradient>
+              <linearGradient id="compassRing" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style={{ stopColor: '#2c2c2c', stopOpacity: 1 }} />
+                <stop offset="50%" style={{ stopColor: '#1a1a1a', stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: '#000000', stopOpacity: 1 }} />
+              </linearGradient>
+            </defs>
 
-            <div style={{
-              width: '80px',
-              height: '80px',
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: `translate(-50%, -50%) rotate(${heading}deg)`,
-              transition: 'transform 0.2s ease-out'
-            }}>
-              <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{
-                width: '100%',
-                height: '100%',
-                filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5))'
-              }}>
-                <defs>
-                  <linearGradient id="northGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: '#ff4444', stopOpacity: 1 }} />
-                    <stop offset="50%" style={{ stopColor: '#cc0000', stopOpacity: 1 }} />
-                  </linearGradient>
-                  <linearGradient id="southGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="50%" style={{ stopColor: '#cccccc', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#888888', stopOpacity: 1 }} />
-                  </linearGradient>
-                </defs>
-                <path d="M 50 10 L 65 50 L 50 45 L 35 50 Z" fill="url(#northGradient)" stroke="#660000" strokeWidth="1" />
-                <path d="M 50 90 L 65 50 L 50 55 L 35 50 Z" fill="url(#southGradient)" stroke="#333333" strokeWidth="1" />
-                <circle cx="50" cy="50" r="8" fill="white" stroke="#333" strokeWidth="2" />
-              </svg>
-            </div>
+            {/* Outer ring */}
+            <circle cx="200" cy="200" r="195" fill="url(#compassRing)" />
+            <circle cx="200" cy="200" r="185" fill="none" stroke="#4a4a4a" strokeWidth="2" />
 
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              marginTop: '50px',
-              fontSize: '32px',
-              fontWeight: 'bold',
-              textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)'
+            {/* Main compass face */}
+            <circle cx="200" cy="200" r="175" fill="url(#compassBg)" stroke="#2c2c2c" strokeWidth="3" />
+
+            {/* Degree markings */}
+            {Array.from({ length: 72 }).map((_, i) => {
+              const angle = i * 5
+              const isMajor = angle % 30 === 0
+              const isCardinal = angle % 90 === 0
+              const rad = (angle - 90) * Math.PI / 180
+              const r1 = isCardinal ? 145 : isMajor ? 150 : 160
+              const r2 = 175
+              const x1 = 200 + r1 * Math.cos(rad)
+              const y1 = 200 + r1 * Math.sin(rad)
+              const x2 = 200 + r2 * Math.cos(rad)
+              const y2 = 200 + r2 * Math.sin(rad)
+
+              return (
+                <line
+                  key={i}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={isCardinal ? "#d32f2f" : isMajor ? "#333" : "#999"}
+                  strokeWidth={isCardinal ? "3" : isMajor ? "2" : "1"}
+                />
+              )
+            })}
+
+            {/* Inner decorative rings */}
+            <circle cx="200" cy="200" r="130" fill="none" stroke="#ccc" strokeWidth="1" />
+            <circle cx="200" cy="200" r="125" fill="none" stroke="#999" strokeWidth="2" />
+            <circle cx="200" cy="200" r="115" fill="none" stroke="#ccc" strokeWidth="1" />
+
+            {/* Decorative star pattern */}
+            {Array.from({ length: 8 }).map((_, i) => {
+              const angle = i * 45
+              const rad = (angle - 90) * Math.PI / 180
+              const r = 110
+              const x = 200 + r * Math.cos(rad)
+              const y = 200 + r * Math.sin(rad)
+
+              return (
+                <line
+                  key={`star${i}`}
+                  x1={200}
+                  y1={200}
+                  x2={x}
+                  y2={y}
+                  stroke="#ddd"
+                  strokeWidth="1"
+                  opacity="0.5"
+                />
+              )
+            })}
+
+            {/* Cardinal directions */}
+            <text x="200" y="30" textAnchor="middle" fontSize="32" fontWeight="bold" fill="#d32f2f" fontFamily="Georgia, serif">N</text>
+
+            {/* E with white stroke */}
+            <text x="370" y="210" textAnchor="middle" fontSize="28" fontWeight="bold" fill="white" stroke="white" strokeWidth="6" fontFamily="Georgia, serif">E</text>
+            <text x="370" y="210" textAnchor="middle" fontSize="28" fontWeight="bold" fill="#333" fontFamily="Georgia, serif">E</text>
+
+            {/* S with white stroke */}
+            <text x="200" y="380" textAnchor="middle" fontSize="28" fontWeight="bold" fill="white" stroke="white" strokeWidth="6" fontFamily="Georgia, serif">S</text>
+            <text x="200" y="380" textAnchor="middle" fontSize="28" fontWeight="bold" fill="#333" fontFamily="Georgia, serif">S</text>
+
+            {/* W with white stroke */}
+            <text x="30" y="210" textAnchor="middle" fontSize="28" fontWeight="bold" fill="white" stroke="white" strokeWidth="6" fontFamily="Georgia, serif">W</text>
+            <text x="30" y="210" textAnchor="middle" fontSize="28" fontWeight="bold" fill="#333" fontFamily="Georgia, serif">W</text>
+
+            {/* Intercardinal directions */}
+            <text x="285" y="85" textAnchor="middle" fontSize="16" fill="#666" fontFamily="Arial, sans-serif">NE</text>
+            <text x="315" y="315" textAnchor="middle" fontSize="16" fill="#666" fontFamily="Arial, sans-serif">SE</text>
+            <text x="85" y="315" textAnchor="middle" fontSize="16" fill="#666" fontFamily="Arial, sans-serif">SW</text>
+            <text x="115" y="85" textAnchor="middle" fontSize="16" fill="#666" fontFamily="Arial, sans-serif">NW</text>
+          </svg>
+
+          {/* Rotating needle */}
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: '100%',
+            height: '100%',
+            transform: `translate(-50%, -50%) rotate(${-smoothedHeading}deg)`,
+            transition: 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)'
+          }}>
+            <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" style={{
+              width: '100%',
+              height: '100%'
             }}>
-              {Math.round(heading)}°
-            </div>
+              <defs>
+                <linearGradient id="needleNorth" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" style={{ stopColor: '#ff5252', stopOpacity: 1 }} />
+                  <stop offset="100%" style={{ stopColor: '#c62828', stopOpacity: 1 }} />
+                </linearGradient>
+                <linearGradient id="needleSouth" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" style={{ stopColor: '#e0e0e0', stopOpacity: 1 }} />
+                  <stop offset="100%" style={{ stopColor: '#9e9e9e', stopOpacity: 1 }} />
+                </linearGradient>
+                <filter id="needleShadow">
+                  <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.5"/>
+                </filter>
+              </defs>
+
+              {/* North pointer */}
+              <path
+                d="M 200 80 L 215 195 L 200 190 L 185 195 Z"
+                fill="url(#needleNorth)"
+                stroke="#8b0000"
+                strokeWidth="2"
+                filter="url(#needleShadow)"
+              />
+
+              {/* South pointer */}
+              <path
+                d="M 200 320 L 215 205 L 200 210 L 185 205 Z"
+                fill="url(#needleSouth)"
+                stroke="#424242"
+                strokeWidth="2"
+                filter="url(#needleShadow)"
+              />
+
+              {/* Center cap */}
+              <circle cx="200" cy="200" r="15" fill="#fff" stroke="#333" strokeWidth="2" />
+              <circle cx="200" cy="200" r="8" fill="#d32f2f" stroke="#8b0000" strokeWidth="1" />
+            </svg>
+          </div>
+
+          {/* Heading display */}
+          <div style={{
+            position: 'absolute',
+            bottom: '30px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(0, 0, 0, 0.75)',
+            padding: '8px 20px',
+            borderRadius: '20px',
+            fontSize: '28px',
+            fontWeight: 'bold',
+            color: 'white',
+            border: '2px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)'
+          }}>
+            {Math.round(smoothedHeading)}°
           </div>
         </div>
 
@@ -338,10 +523,16 @@ export default function CompassApp() {
             <strong>Method:</strong> {method}
           </p>
           <p style={{ margin: '5px 0' }}>
-            <strong>Heading:</strong> {heading.toFixed(1)}°
+            <strong>Heading:</strong> {Math.round(smoothedHeading)}°
           </p>
           <p style={{ margin: '5px 0' }}>
             <strong>Alpha:</strong> {alpha !== null ? alpha.toFixed(1) : '--'}°
+          </p>
+          <p style={{ margin: '5px 0' }}>
+            <strong>Beta:</strong> {beta !== null ? beta.toFixed(1) : '--'}°
+          </p>
+          <p style={{ margin: '5px 0' }}>
+            <strong>Gamma:</strong> {gamma !== null ? gamma.toFixed(1) : '--'}°
           </p>
           <p style={{ margin: '5px 0' }}>
             <strong>Absolute:</strong> {absolute ? 'true' : 'false'}
