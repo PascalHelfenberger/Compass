@@ -31,7 +31,7 @@ export default function ArrowApp() {
           setStatusType('success')
         }
 
-        const currentRotation = -(a - (initialAlpha || a))
+        const currentRotation = (a - (initialAlpha || a))
         setRotation(currentRotation)
       }
     }
