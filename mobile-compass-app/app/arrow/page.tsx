@@ -8,7 +8,8 @@ export default function ArrowApp() {
   const [beta, setBeta] = useState<number | null>(null)
   const [gamma, setGamma] = useState<number | null>(null)
   const [rotation, setRotation] = useState(0)
-  const [initialAlpha, setInitialAlpha] = useState<number | null>(null)
+  const [initialBeta, setInitialBeta] = useState<number | null>(null)
+  const [initialGamma, setInitialGamma] = useState<number | null>(null)
   const [status, setStatus] = useState('Initializing...')
   const [statusType, setStatusType] = useState<'success' | 'error' | 'warning'>('warning')
   const [showButton, setShowButton] = useState(false)
@@ -24,14 +25,20 @@ export default function ArrowApp() {
       setBeta(b)
       setGamma(g)
 
-      if (a !== null) {
-        if (initialAlpha === null) {
-          setInitialAlpha(a)
+      // Use beta and gamma for calculating rotation when phone is held upright
+      if (b !== null && g !== null) {
+        if (initialBeta === null || initialGamma === null) {
+          setInitialBeta(b)
+          setInitialGamma(g)
           setStatus('Tracking active!')
           setStatusType('success')
         }
 
-        const currentRotation = (a - (initialAlpha || a))
+        // Calculate rotation based on change in beta and gamma
+        // atan2 gives us the angle in the 2D plane
+        const currentAngle = Math.atan2(g, b) * (180 / Math.PI)
+        const initialAngle = Math.atan2(initialGamma || g, initialBeta || b) * (180 / Math.PI)
+        const currentRotation = currentAngle - initialAngle
         setRotation(currentRotation)
       }
     }
@@ -76,7 +83,7 @@ export default function ArrowApp() {
     }
 
     const timeoutId = setTimeout(() => {
-      if (initialAlpha === null && status === 'Waiting for orientation data...') {
+      if ((initialBeta === null || initialGamma === null) && status === 'Waiting for orientation data...') {
         setStatus('No orientation data received. Make sure sensors are enabled.')
         setStatusType('error')
       }
@@ -86,7 +93,7 @@ export default function ArrowApp() {
       window.removeEventListener('deviceorientation', handleOrientation)
       clearTimeout(timeoutId)
     }
-  }, [initialAlpha, status])
+  }, [initialBeta, initialGamma, status])
 
   const handleRequestPermission = async () => {
     if (typeof window !== 'undefined' && typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
