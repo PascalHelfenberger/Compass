@@ -243,7 +243,7 @@ export default function CompassApp() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
+      background: 'linear-gradient(135deg, #2c8adcff 0%, #06cdc6ff 100%)',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -382,7 +382,7 @@ export default function CompassApp() {
             left: '50%',
             width: '100%',
             height: '100%',
-            transform: `translate(-50%, -50%) rotate(${-smoothedHeading}deg)`,
+            transform: `translate(-50%, -50%) rotate(${smoothedHeading}deg)`,
             transition: 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)'
           }}>
             <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" style={{
