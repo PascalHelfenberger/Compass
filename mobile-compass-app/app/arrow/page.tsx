@@ -38,7 +38,7 @@ export default function ArrowApp() {
         // atan2 gives us the angle in the 2D plane
         const currentAngle = Math.atan2(g, b) * (180 / Math.PI)
         const initialAngle = Math.atan2(initialGamma || g, initialBeta || b) * (180 / Math.PI)
-        const currentRotation = currentAngle - initialAngle
+        const currentRotation = initialAngle - currentAngle
         setRotation(currentRotation)
       }
     }
